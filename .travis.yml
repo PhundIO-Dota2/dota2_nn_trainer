@@ -58,11 +58,11 @@ after_success:
 
 deploy:
     provider: releases
+    skip_cleanup: true
+    file: build.tar.gz
 
     api_key:
         secure: lIbuDJo+sx+cvCDlizfhMAa5IDfnQSSU1a6xr7osjURLkWSlED+WhX2L5rBxh8NDdRMkbipSvsIhR08WfFsZ+bRQ2VJTe/PZz4kdtZ83pIg4dFt3PIHhdUQZaU3Ob0tiV1KeWjQsIQERqKGTp1B4KcIYzDF2BIcqcU8Y/R537nxshMNiZpzrwK8gciOX1aNU2+HUQlRFkO4TsGGjl+GQt2E5ikXLn6SpAc/B4dMfEU/bq+46ZQlwf0tcIM/sJ/J/vMRsuOlRVwgCbNAOjq5jizpoQDkmxLZvKUOombofXdJEGFj1fiYDnS2Bu7oGAzC75VY5IJiz0h1dffZVqWcA3YSbDVXxh90klkABKylOHPim3Xnk54a7cEbfpyzqXAJOZX3QDg45KWYWrIeMXC06QYaQvQsAQShau+AivExZ2mvX+t7pOQ+ztHya9fhrl3FoCgrw9KmJv8zRIk4Ry0VPYVJjs2I8o2VrGzCNsLi1Sf3WNHtfXrsStxJrRAz1YDXjNvjzYh6etwmRbtC7MMh48FERN5Yk1lwgDdFtmdFErmlmQL+3KsGoYhLsBjeimBD41MYt+8mniZ7r1WPHlTnYBqrYOaHh5QUnwLhKi554zJMMxD4cOJF9H2veMIMXZDB9bUB3fayOc7vtfL0Lsfjy4lw6vlKw4UAgE4kQA8UzavA=
-    
-    file: build.tar.gz
 
     on:
         repo: axetion/dota2_nn_trainer
