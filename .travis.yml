@@ -1,44 +1,76 @@
-language: go
+matrix:
+    include:
+    - os: linux
+      dist: trusty
+      language: go
 
-cache:
-    directories:
-    - $HOME/paths
-    - $HOME/torch7
-    - $HOME/nn
-    - $HOME/luajit-rocks
+      addons:
+          apt:
+              sources:
+              - ubuntu-toolchain-r-test
+
+              packages:
+              - gcc-7
+              - g++-7
+              - libopenblas-dev
+
+      before_install:
+      - echo -e '#!/bin/sh\nccache gcc-7 "$@"' > $HOME/ccache-gcc-7; chmod 0755 $HOME/ccache-gcc-7
+      - echo -e '#!/bin/sh\nccache g++-7 "$@"' > $HOME/ccache-g++-7; chmod 0755 $HOME/ccache-g++-7
+
+      env:
+      - BUILD_NAME=linux.tar.gz
+      - LIBS="/usr/lib/libopenblas.a /usr/lib/gcc/x86_64-linux-gnu/7/libgomp.a"
+      - FLAGS=-lrt
+      - CC="$HOME/ccache-gcc-7"
+      - CXX="$HOME/ccache-g++-7"
+
+    - os: osx
+      language: generic
+
+      before_install:
+      - echo -e '#!/bin/sh\nccache gcc-7 "$@"' > $HOME/ccache-gcc-7; chmod 0755 $HOME/ccache-gcc-7
+      - echo -e '#!/bin/sh\nccache g++-7 "$@"' > $HOME/ccache-g++-7; chmod 0755 $HOME/ccache-g++-7
+
+      - mkdir -p $HOME/gopath
+      - brew upgrade go
+
+      - brew install ccache
+      - travis_wait 30 brew install homebrew/science/openblas --with-openmp
+
+      env:
+      - BUILD_NAME=osx.tar.gz
+      - LIBS="/usr/local/Cellar/openblas/*/lib/libopenblas.a /usr/local/lib/gcc/7/libgomp.a /usr/local/lib/gcc/7/libgfortran.a /usr/local/lib/gcc/7/libquadmath.a"
+      - GOPATH=$HOME/gopath
+      - CC="$HOME/ccache-gcc-7"
+      - CXX="$HOME/ccache-g++-7"
 
 sudo: false
 
-addons:
-    apt:
-        packages:
-        - cmake
-        - build-essential
-        - unzip
-        - libopenblas-dev
+cache:
+    directories:
+    - $HOME/.ccache
 
 install:
-- if [ ! -d $HOME/luajit-rocks/build ]; then
-      git clone https://github.com/axetion/luajit-rocks $HOME/luajit-rocks;
-      mkdir $HOME/luajit-rocks/build && cd $HOME/luajit-rocks/build;
+- git clone https://github.com/axetion/luajit-rocks $HOME/luajit-rocks
+- mkdir $HOME/luajit-rocks/build && cd $HOME/luajit-rocks/build
 
-      cmake .. -DCMAKE_INSTALL_PREFIX=. -DCMAKE_CXX_COMPILER=g++;
-      make install;
+- cmake .. -DCMAKE_INSTALL_PREFIX=.
+- make install
 
-      git clone https://github.com/axetion/paths $HOME/paths;
-      cd $HOME/paths;
-      $HOME/luajit-rocks/build/bin/luarocks make rocks/paths-scm-1.rockspec;
+- git clone https://github.com/axetion/paths $HOME/paths
+- cd $HOME/paths
+- $HOME/luajit-rocks/build/bin/luarocks make rocks/paths-scm-1.rockspec
 
-      git clone https://github.com/axetion/torch7 $HOME/torch7;
-      cd $HOME/torch7;
-      $HOME/luajit-rocks/build/bin/luarocks make rocks/torch-scm-1.rockspec;
+- git clone https://github.com/axetion/torch7 $HOME/torch7
+- cd $HOME/torch7
+- $HOME/luajit-rocks/build/bin/luarocks make rocks/torch-scm-1.rockspec
 
-      git clone https://github.com/axetion/nn $HOME/nn;
-      cd $HOME/nn;
-      $HOME/luajit-rocks/build/bin/luarocks make rocks/nn-scm-1.rockspec;
+- git clone https://github.com/axetion/nn $HOME/nn
+- cd $HOME/nn
+- $HOME/luajit-rocks/build/bin/luarocks make rocks/nn-scm-1.rockspec
 
-      $HOME/luajit-rocks/build/bin/luarocks install luastatic;
-  fi
+- $HOME/luajit-rocks/build/bin/luarocks install luastatic
 
 - go get github.com/dotabuff/manta
 - cd $TRAVIS_BUILD_DIR
@@ -48,18 +80,21 @@ script:
 
 - go build ../corpus_build.go
 
-- $HOME/luajit-rocks/build/bin/luastatic ../trainer.lua $HOME/paths/*.lua $HOME/torch7/*.lua $HOME/nn/*.lua $HOME/luajit-rocks/build/luajit-2.0/libluajit-static.a $HOME/paths/build/libpaths.a $HOME/torch7/build/libtorch.a $HOME/torch7/build/lib/luaT/libluaT.a $HOME/torch7/build/lib/TH/libTH.a /usr/lib/openblas-base/libopenblas.a /usr/lib/gcc/x86_64-linux-gnu/4.6/libgomp.a -I$HOME/luajit-rocks/build/include -lpthread -lrt
+- $HOME/luajit-rocks/build/bin/luastatic ../trainer.lua $HOME/paths/*.lua $HOME/torch7/*.lua $HOME/nn/*.lua $HOME/luajit-rocks/build/luajit-2.0/libluajit-static.a $HOME/paths/build/libpaths.a $HOME/torch7/build/libtorch.a $HOME/torch7/build/lib/luaT/libluaT.a $HOME/torch7/build/lib/TH/libTH.a $LIBS -I$HOME/luajit-rocks/build/include -lpthread $FLAGS
 
-- cd ..; tar -cvzf build.tar.gz build
+- cd ..; tar -cvzf $BUILD_NAME build
 
 after_success:
 - rm *.c
 - rm -rf build
+- ccache -s
 
 deploy:
     provider: releases
     skip_cleanup: true
-    file: build.tar.gz
+    file_glob: true
+
+    file: "*.tar.gz"
 
     api_key:
         secure: lIbuDJo+sx+cvCDlizfhMAa5IDfnQSSU1a6xr7osjURLkWSlED+WhX2L5rBxh8NDdRMkbipSvsIhR08WfFsZ+bRQ2VJTe/PZz4kdtZ83pIg4dFt3PIHhdUQZaU3Ob0tiV1KeWjQsIQERqKGTp1B4KcIYzDF2BIcqcU8Y/R537nxshMNiZpzrwK8gciOX1aNU2+HUQlRFkO4TsGGjl+GQt2E5ikXLn6SpAc/B4dMfEU/bq+46ZQlwf0tcIM/sJ/J/vMRsuOlRVwgCbNAOjq5jizpoQDkmxLZvKUOombofXdJEGFj1fiYDnS2Bu7oGAzC75VY5IJiz0h1dffZVqWcA3YSbDVXxh90klkABKylOHPim3Xnk54a7cEbfpyzqXAJOZX3QDg45KWYWrIeMXC06QYaQvQsAQShau+AivExZ2mvX+t7pOQ+ztHya9fhrl3FoCgrw9KmJv8zRIk4Ry0VPYVJjs2I8o2VrGzCNsLi1Sf3WNHtfXrsStxJrRAz1YDXjNvjzYh6etwmRbtC7MMh48FERN5Yk1lwgDdFtmdFErmlmQL+3KsGoYhLsBjeimBD41MYt+8mniZ7r1WPHlTnYBqrYOaHh5QUnwLhKi554zJMMxD4cOJF9H2veMIMXZDB9bUB3fayOc7vtfL0Lsfjy4lw6vlKw4UAgE4kQA8UzavA=
